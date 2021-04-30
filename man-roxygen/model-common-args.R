@@ -6,7 +6,15 @@
 #'  appendices in the CmdStan manual for details on using these formats.
 #'  * `NULL` or an empty list if the Stan program has no `data` block.
 #'
-#' @param seed (positive integer) A seed for the (P)RNG to pass to CmdStan.
+#' @param seed (positive integer(s)) A seed for the (P)RNG to pass to CmdStan.
+#'   In the case of multi-chain sampling the single `seed` will automatically be
+#'   augmented by the the run (chain) ID so that each chain uses a different
+#'   seed. The exception is the `transformed data` block, which defaults to
+#'   using same seed for all chains so that the same data is generated for all
+#'   chains if RNG functions are used. The only time `seed` should be specified
+#'   as a vector (one element per chain) is if RNG functions are used in
+#'   `transformed data` and the goal is to generate *different* data for each
+#'   chain.
 #'
 #' @param refresh (non-negative integer) The number of iterations between
 #'   printed screen updates. If `refresh = 0`, only error messages will be
@@ -48,18 +56,29 @@
 #'   `NULL` (temporary directory) since CmdStanR makes the CmdStan output
 #'   (posterior draws and diagnostics) available in \R via methods of the fitted
 #'   model objects. The behavior of `output_dir` is as follows:
-#'  * If `NULL` (the default), then the CSV files are written to a temporary
-#'  directory and only saved permanently if the user calls one of the `$save_*`
-#'  methods of the fitted model object (e.g.,
-#'  [`$save_output_files()`][fit-method-save_output_files]). These temporary
-#'  files are removed when the fitted model object is
-#'  [garbage collected][base::gc] (manually or automatically).
-#'  * If a path, then the files are created in `output_dir` with names
-#'  corresponding to the defaults used by `$save_output_files()`.
+#'   * If `NULL` (the default), then the CSV files are written to a temporary
+#'   directory and only saved permanently if the user calls one of the `$save_*`
+#'   methods of the fitted model object (e.g.,
+#'   [`$save_output_files()`][fit-method-save_output_files]). These temporary
+#'   files are removed when the fitted model object is
+#'   [garbage collected][base::gc] (manually or automatically).
+#'   * If a path, then the files are created in `output_dir` with names
+#'   corresponding to the defaults used by `$save_output_files()`.
+#'
+#' @param output_basename (string) A string to use as a prefix for the
+#'   names of the output CSV files of CmdStan.
+#'   * If `NULL` (the default), the basename of the output CSV files
+#'   will be comprised from the model name, timestamp and 5 random characters.
 #'
 #' @param sig_figs (positive integer) The number of significant figures used
 #'   when storing the output values. By default, CmdStan represent the output
 #'   values with 6 significant figures. The upper limit for `sig_figs` is 18.
 #'   Increasing this value will result in larger output CSV files and thus an
 #'   increased usage of disk space.
+#' 
+#' @param opencl_ids (integer vector of length 2) The platform and 
+#'   device IDs of the OpenCL device to use for fitting. The model must 
+#'   be compiled with `cpp_options = list(stan_opencl = TRUE)` for this
+#'   argument to have an effect.
 #'
+#' 

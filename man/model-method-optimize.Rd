@@ -12,8 +12,10 @@ optimize(
   init = NULL,
   save_latent_dynamics = FALSE,
   output_dir = NULL,
+  output_basename = NULL,
   sig_figs = NULL,
   threads = NULL,
+  opencl_ids = NULL,
   algorithm = NULL,
   init_alpha = NULL,
   iter = NULL,
@@ -36,7 +38,15 @@ appendices in the CmdStan manual for details on using these formats.
 \item \code{NULL} or an empty list if the Stan program has no \code{data} block.
 }}
 
-\item{seed}{(positive integer) A seed for the (P)RNG to pass to CmdStan.}
+\item{seed}{(positive integer(s)) A seed for the (P)RNG to pass to CmdStan.
+In the case of multi-chain sampling the single \code{seed} will automatically be
+augmented by the the run (chain) ID so that each chain uses a different
+seed. The exception is the \verb{transformed data} block, which defaults to
+using same seed for all chains so that the same data is generated for all
+chains if RNG functions are used. The only time \code{seed} should be specified
+as a vector (one element per chain) is if RNG functions are used in
+\verb{transformed data} and the goal is to generate \emph{different} data for each
+chain.}
 
 \item{refresh}{(non-negative integer) The number of iterations between
 printed screen updates. If \code{refresh = 0}, only error messages will be
@@ -91,6 +101,13 @@ files are removed when the fitted model object is
 corresponding to the defaults used by \verb{$save_output_files()}.
 }}
 
+\item{output_basename}{(string) A string to use as a prefix for the
+names of the output CSV files of CmdStan.
+\itemize{
+\item If \code{NULL} (the default), the basename of the output CSV files
+will be comprised from the model name, timestamp and 5 random characters.
+}}
+
 \item{sig_figs}{(positive integer) The number of significant figures used
 when storing the output values. By default, CmdStan represent the output
 values with 6 significant figures. The upper limit for \code{sig_figs} is 18.
@@ -101,6 +118,11 @@ increased usage of disk space.}
 \link[=model-method-compile]{compiled} with threading support, the number of
 threads to use in parallelized sections (e.g., when
 using the Stan functions \code{reduce_sum()} or \code{map_rect()}).}
+
+\item{opencl_ids}{(integer vector of length 2) The platform and
+device IDs of the OpenCL device to use for fitting. The model must
+be compiled with \code{cpp_options = list(stan_opencl = TRUE)} for this
+argument to have an effect.}
 
 \item{algorithm}{(string) The optimization algorithm. One of \code{"lbfgs"},
 \code{"bfgs"}, or \code{"newton"}. The control parameters below are only available

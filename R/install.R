@@ -3,7 +3,7 @@
 #' @description The `install_cmdstan()` function attempts to download and
 #'   install the latest release of [CmdStan](https://github.com/stan-dev/cmdstan/releases/latest).
 #'   Installing a previous release or a new release candidate is also possible
-#'   by specifying the `release_url` argument.
+#'   by specifying the `version` or `release_url` argument.
 #'   See the first few sections of the CmdStan
 #'   [installation guide](https://mc-stan.org/docs/cmdstan-guide/cmdstan-installation.html)
 #'   for details on the C++ toolchain required for installing CmdStan.
@@ -39,8 +39,7 @@
 #'   user's installation.
 #' @param timeout Timeout (in seconds) for the build stage of the installation.
 #' @param version The CmdStan release version to install. The default is `NULL`,
-#'   which downloads the latest stable release from
-#'   <https://github.com/stan-dev/cmdstan/releases>.
+#'   which downloads the latest stable release from <https://github.com/stan-dev/cmdstan/releases>.
 #' @param release_url The URL for the specific CmdStan release or
 #'   release candidate to install. See <https://github.com/stan-dev/cmdstan/releases>.
 #'   The URL should point to the tarball (`.tar.gz.` file) itself, e.g.,
@@ -158,27 +157,6 @@ install_cmdstan <- function(dir = NULL,
         append = TRUE
       )
     }
-    if (version < "2.24") {
-      # disable warnings cmdstan <= 2.23 prints with RTools 4.0 on Windows
-      cmdstan_make_local(
-        dir = dir_cmdstan,
-        cpp_options = list(
-          "ifeq (gcc,$(CXX_TYPE))",
-          "CXXFLAGS_WARNINGS+= -Wno-int-in-bool-context -Wno-attributes",
-          "endif"
-        ),
-        append = TRUE
-      )
-    }
-    if (version > "2.22" && version < "2.24") {
-      # cmdstan 2.23 unnecessarily required chmod after moving the windows-stanc
-      # this moves the exe file so the make command that requires chmod is not used
-      windows_stanc <- file.path(dir_cmdstan, "bin", "windows-stanc")
-      bin_stanc_exe <- file.path(dir_cmdstan, "bin", "stanc.exe")
-      if (file.exists(windows_stanc)) {
-        file.copy(windows_stanc, bin_stanc_exe)
-      }
-    }
   }
   # Setting up native M1 compilation of CmdStan and its downstream libraries
   if (is_rosetta2()) {
@@ -188,18 +166,6 @@ install_cmdstan <- function(dir = NULL,
         CXX="arch -arch arm64e clang++"
       ),
       append = TRUE
-    )
-    try(
-      suppressWarnings({
-        macos_inc <- "https://raw.githubusercontent.com/stan-dev/math/92fce0218c9fb15fd405ef031f488cad05c5546b/lib/tbb_2019_U8/build/macos.inc"
-        dest_macos_inc <- file.path(dir_cmdstan, "stan", "lib", "stan_math", "lib", "tbb_2019_U8", "build", "macos.inc")
-        file.remove(dest_macos_inc)
-        utils::download.file(url = macos_inc,
-                             destfile = dest_macos_inc,
-                             quiet = quiet,
-                             headers = github_auth_token())
-      }),
-      silent = TRUE
     )
   }
 
@@ -322,7 +288,7 @@ download_with_retries <- function(download_url,
                                   retries = 5,
                                   pause_sec = 5,
                                   quiet = TRUE) {
-        
+
     download_rc <- 1
     while (retries > 0 && download_rc != 0) {
       try(
@@ -644,7 +610,7 @@ check_cmdstan_toolchain <- function(fix = FALSE, quiet = FALSE) {
     stop("No write permissions to the temporary folder! Please change the permissions or location of the temporary folder.", call. = FALSE)
   }
   if (!quiet) {
-    message("The CmdStan toolchain is setup properly!")
+    message("The C++ toolchain required for CmdStan is setup properly!")
   }
   invisible(NULL)
 }

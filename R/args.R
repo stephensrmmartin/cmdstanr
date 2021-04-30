@@ -6,7 +6,7 @@
 #'
 #' @noRd
 #' @details
-#' A `CmdStanArgs` object stores arguments _not_ specific to particular methods,
+#' A `CmdStanArgs` object stores arguments common to all methods,
 #' as well as one of the following objects containing the method-specific
 #' arguments:
 #'
@@ -30,8 +30,10 @@ CmdStanArgs <- R6::R6Class(
                           init = NULL,
                           refresh = NULL,
                           output_dir = NULL,
+                          output_basename = NULL,
                           validate_csv = TRUE,
-                          sig_figs = NULL) {
+                          sig_figs = NULL,
+                          opencl_ids = NULL) {
 
       self$model_name <- model_name
       self$exe_file <- exe_file
@@ -51,13 +53,14 @@ CmdStanArgs <- R6::R6Class(
         self$output_dir <- output_dir %||% tempdir(check = TRUE)
       }
       self$output_dir <- repair_path(self$output_dir)
+      self$output_basename <- output_basename
       if (is.function(init)) {
         init <- process_init_function(init, length(self$proc_ids))
       } else if (is.list(init) && !is.data.frame(init)) {
         init <- process_init_list(init, length(self$proc_ids))
       }
       self$init <- init
-
+      self$opencl_ids <- opencl_ids
       self$method_args$validate(num_procs = length(self$proc_ids))
       self$validate()
     },
@@ -83,12 +86,15 @@ CmdStanArgs <- R6::R6Class(
       } else if (type == "profile") {
         basename <- paste0(basename, "-profile")
       }
+      if (type ==  "output" && !is.null(self$output_basename)) {
+        basename <- self$output_basename
+      }
       generate_file_names( # defined in utils.R
         basename = basename,
         ext = ".csv",
         ids = self$proc_ids,
-        timestamp = TRUE,
-        random = TRUE
+        timestamp = is.null(self$output_basename),
+        random = is.null(self$output_basename)
       )
     },
     new_files = function(type = c("output", "diagnostic", "profile")) {
@@ -149,7 +155,9 @@ CmdStanArgs <- R6::R6Class(
       if (!is.null(profile_file)) {
         args$output <- c(args$output, paste0("profile_file=", profile_file))
       }
-
+      if (!is.null(self$opencl_ids)) {
+        args$opencl <- c("opencl", paste0("platform=", self$opencl_ids[1]), paste0("device=", self$opencl_ids[2]))
+      }
       args <- do.call(c, append(args, list(use.names = FALSE)))
       self$method_args$compose(idx, args)
     },
@@ -506,7 +514,12 @@ validate_cmdstan_args = function(self) {
   num_procs <- length(self$proc_ids)
   validate_init(self$init, num_procs)
   validate_seed(self$seed, num_procs)
-
+  if (!is.null(self$opencl_ids)) {
+    if (cmdstan_version() < "2.25") {
+      stop("Runtime selection of OpenCL devices is only supported with CmdStan version 2.26 or newer.", call. = FALSE)
+    }
+    checkmate::assert_vector(self$opencl_ids, len = 2)
+  }
   invisible(TRUE)
 }
 
@@ -746,7 +759,9 @@ process_init_list <- function(init, num_procs) {
   if (any(sapply(init, function(x) length(x) == 0))) {
     stop("'init' contains empty lists.", call. = FALSE)
   }
-
+  if (any(grepl("\\[",names(unlist(init))))) {
+    stop("'init' contains entries with parameter names that include square-brackets, which is not permitted. To supply inits for a vector, matrix or array of parameters, create a single entry with the parameter's name in the init list and specify init values for the entire parameter container.", call. = FALSE)
+  }
   init_paths <-
     tempfile(
       pattern = paste0("init-", seq_along(init), "-"),
@@ -861,10 +876,9 @@ validate_seed <- function(seed, num_procs) {
 #' @return An integer vector of length `num_procs`.
 maybe_generate_seed <- function(seed, num_procs) {
   if (is.null(seed)) {
-    seed <- base::sample(.Machine$integer.max, num_procs)
+    seed <- base::rep(base::sample(.Machine$integer.max, 1), num_procs)
   } else if (length(seed) == 1 && num_procs > 1) {
-    seed <- as.integer(seed)
-    seed <- c(seed, seed + 1:(num_procs -1))
+    seed <- base::rep(as.integer(seed), num_procs)
   }
   seed
 }

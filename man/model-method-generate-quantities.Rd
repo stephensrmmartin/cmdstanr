@@ -10,9 +10,11 @@ generate_quantities(
   data = NULL,
   seed = NULL,
   output_dir = NULL,
+  output_basename = NULL,
   sig_figs = NULL,
   parallel_chains = getOption("mc.cores", 1),
-  threads_per_chain = NULL
+  threads_per_chain = NULL,
+  opencl_ids = NULL
 )
 }
 \arguments{
@@ -35,7 +37,15 @@ appendices in the CmdStan manual for details on using these formats.
 \item \code{NULL} or an empty list if the Stan program has no \code{data} block.
 }}
 
-\item{seed}{(positive integer) A seed for the (P)RNG to pass to CmdStan.}
+\item{seed}{(positive integer(s)) A seed for the (P)RNG to pass to CmdStan.
+In the case of multi-chain sampling the single \code{seed} will automatically be
+augmented by the the run (chain) ID so that each chain uses a different
+seed. The exception is the \verb{transformed data} block, which defaults to
+using same seed for all chains so that the same data is generated for all
+chains if RNG functions are used. The only time \code{seed} should be specified
+as a vector (one element per chain) is if RNG functions are used in
+\verb{transformed data} and the goal is to generate \emph{different} data for each
+chain.}
 
 \item{output_dir}{(string) A path to a directory where CmdStan should write
 its output CSV files. For interactive use this can typically be left at
@@ -51,6 +61,13 @@ files are removed when the fitted model object is
 \link[base:gc]{garbage collected} (manually or automatically).
 \item If a path, then the files are created in \code{output_dir} with names
 corresponding to the defaults used by \verb{$save_output_files()}.
+}}
+
+\item{output_basename}{(string) A string to use as a prefix for the
+names of the output CSV files of CmdStan.
+\itemize{
+\item If \code{NULL} (the default), the basename of the output CSV files
+will be comprised from the model name, timestamp and 5 random characters.
 }}
 
 \item{sig_figs}{(positive integer) The number of significant figures used
@@ -73,6 +90,11 @@ contrast with \code{parallel_chains}, which specifies the number of chains to
 run in parallel. The actual number of CPU cores used use is
 \code{parallel_chains*threads_per_chain}. For an example of using threading see
 the Stan case study \href{https://mc-stan.org/users/documentation/case-studies/reduce_sum_tutorial.html}{Reduce Sum: A Minimal Example}.}
+
+\item{opencl_ids}{(integer vector of length 2) The platform and
+device IDs of the OpenCL device to use for fitting. The model must
+be compiled with \code{cpp_options = list(stan_opencl = TRUE)} for this
+argument to have an effect.}
 }
 \value{
 A \code{\link{CmdStanGQ}} object.

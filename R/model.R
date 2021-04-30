@@ -186,6 +186,7 @@ CmdStanModel <- R6::R6Class(
   classname = "CmdStanModel",
   private = list(
     stan_file_ = character(),
+    model_name_ = character(),
     exe_file_ = character(),
     hpp_file_ = character(),
     dir_ = NULL,
@@ -201,7 +202,7 @@ CmdStanModel <- R6::R6Class(
       checkmate::assert_file_exists(stan_file, access = "r", extension = "stan")
       checkmate::assert_flag(compile)
       private$stan_file_ <- absolute_path(stan_file)
-
+      private$model_name_ <- sub(" ", "_", strip_ext(basename(private$stan_file_)))
       args <- list(...)
       check_stanc_options(args$stanc_options)
       private$precompile_cpp_options_ <- args$cpp_options %||% list()
@@ -224,6 +225,9 @@ CmdStanModel <- R6::R6Class(
     },
     stan_file = function() {
       private$stan_file_
+    },
+    model_name = function() {
+      private$model_name_
     },
     exe_file = function(path = NULL) {
       if (!is.null(path)) {
@@ -405,7 +409,9 @@ compile <- function(quiet = TRUE,
     exe_base <- file.path(dir, basename(self$stan_file()))
   }
   exe <- cmdstan_ext(paste0(strip_ext(exe_base), exe_suffix))
-  model_name <- sub(" ", "_", paste0(strip_ext(basename(self$stan_file())), "_model"))
+  if (dir.exists(exe)) {
+    stop("There is a subfolder matching the model name in the same folder as the model! Please remove or rename the subfolder and try again.", call. = FALSE)
+  }
 
   # compile if:
   # - the user forced compilation,
@@ -419,7 +425,9 @@ compile <- function(quiet = TRUE,
   }
 
   if (!force_recompile) {
-    message("Model executable is up to date!")
+    if (interactive()) {
+      message("Model executable is up to date!")
+    }
     private$cpp_options_ <- cpp_options
     private$precompile_cpp_options_ <- NULL
     private$precompile_stanc_options_ <- NULL
@@ -427,13 +435,18 @@ compile <- function(quiet = TRUE,
     self$exe_file(exe)
     return(invisible(self))
   } else {
-    message("Compiling Stan program...")
+    if (interactive()) {
+      message("Compiling Stan program...")
+    }
   }
 
   temp_stan_file <- tempfile(pattern = "model-", fileext = ".stan")
   file.copy(self$stan_file(), temp_stan_file, overwrite = TRUE)
   temp_file_no_ext <- strip_ext(temp_stan_file)
   tmp_exe <- cmdstan_ext(temp_file_no_ext) # adds .exe on Windows
+  if(os_is_windows()) {
+    tmp_exe <- utils::shortPathName(tmp_exe)
+  }
   private$hpp_file_ <- paste0(temp_file_no_ext, ".hpp")
 
   # add path to the TBB library to the PATH variable to avoid copying the dll file
@@ -466,7 +479,7 @@ compile <- function(quiet = TRUE,
     stanc_options[["use-opencl"]] <- TRUE
   }
   if (is.null(stanc_options[["name"]])) {
-    stanc_options[["name"]] <- model_name
+    stanc_options[["name"]] <- paste0(self$model_name(), "_model")
   }
   stanc_built_options <- c()
   for (i in seq_len(length(stanc_options))) {
@@ -586,8 +599,6 @@ check_syntax <- function(pedantic = FALSE,
     include_paths <- private$precompile_include_paths_
   }
 
-  model_name <- sub(" ", "_", paste0(strip_ext(basename(self$stan_file())), "_model"))
-
   temp_hpp_file <- tempfile(pattern = "model-", fileext = ".hpp")
   stanc_options[["o"]] <- temp_hpp_file
 
@@ -609,7 +620,7 @@ check_syntax <- function(pedantic = FALSE,
   }
 
   if (is.null(stanc_options[["name"]])) {
-    stanc_options[["name"]] <- model_name
+    stanc_options[["name"]] <- paste0(self$model_name(), "_model")
   }
   stanc_built_options = c()
   for (i in seq_len(length(stanc_options))) {
@@ -681,11 +692,13 @@ sample <- function(data = NULL,
                    init = NULL,
                    save_latent_dynamics = FALSE,
                    output_dir = NULL,
+                   output_basename = NULL,
                    sig_figs = NULL,
                    chains = 4,
                    parallel_chains = getOption("mc.cores", 1),
                    chain_ids = seq_len(chains),
                    threads_per_chain = NULL,
+                   opencl_ids = NULL,
                    iter_warmup = NULL,
                    iter_sampling = NULL,
                    save_warmup = FALSE,
@@ -770,6 +783,7 @@ sample <- function(data = NULL,
            call. = FALSE)
     }
   }
+  check_opencl(self$cpp_options(), opencl_ids)
   sample_args <- SampleArgs$new(
     iter_warmup = iter_warmup,
     iter_sampling = iter_sampling,
@@ -789,7 +803,7 @@ sample <- function(data = NULL,
   )
   cmdstan_args <- CmdStanArgs$new(
     method_args = sample_args,
-    model_name = strip_ext(basename(self$exe_file())),
+    model_name = self$model_name(),
     exe_file = self$exe_file(),
     proc_ids = chain_ids,
     data_file = process_data(data),
@@ -798,8 +812,10 @@ sample <- function(data = NULL,
     init = init,
     refresh = refresh,
     output_dir = output_dir,
+    output_basename = output_basename,
     sig_figs = sig_figs,
-    validate_csv = validate_csv
+    validate_csv = validate_csv,
+    opencl_ids = opencl_ids
   )
   cmdstan_procs <- CmdStanMCMCProcs$new(
     num_procs = chains,
@@ -879,6 +895,7 @@ sample_mpi <- function(data = NULL,
                        init = NULL,
                        save_latent_dynamics = FALSE,
                        output_dir = NULL,
+                       output_basename = NULL,
                        chains = 1,
                        chain_ids = seq_len(chains),
                        iter_warmup = NULL,
@@ -925,7 +942,7 @@ sample_mpi <- function(data = NULL,
   )
   cmdstan_args <- CmdStanArgs$new(
     method_args = sample_args,
-    model_name = strip_ext(basename(self$exe_file())),
+    model_name = self$model_name(),
     exe_file = self$exe_file(),
     proc_ids = chain_ids,
     data_file = process_data(data),
@@ -934,6 +951,7 @@ sample_mpi <- function(data = NULL,
     init = init,
     refresh = refresh,
     output_dir = output_dir,
+    output_basename = output_basename,
     validate_csv = validate_csv,
     sig_figs = sig_figs
   )
@@ -1003,8 +1021,10 @@ optimize <- function(data = NULL,
                      init = NULL,
                      save_latent_dynamics = FALSE,
                      output_dir = NULL,
+                     output_basename = NULL,
                      sig_figs = NULL,
                      threads = NULL,
+                     opencl_ids = NULL,
                      algorithm = NULL,
                      init_alpha = NULL,
                      iter = NULL,
@@ -1029,6 +1049,7 @@ optimize <- function(data = NULL,
            call. = FALSE)
     }
   }
+  check_opencl(self$cpp_options(), opencl_ids)
   optimize_args <- OptimizeArgs$new(
     algorithm = algorithm,
     init_alpha = init_alpha,
@@ -1042,7 +1063,7 @@ optimize <- function(data = NULL,
   )
   cmdstan_args <- CmdStanArgs$new(
     method_args = optimize_args,
-    model_name = strip_ext(basename(self$exe_file())),
+    model_name = self$model_name(),
     exe_file = self$exe_file(),
     proc_ids = 1,
     data_file = process_data(data),
@@ -1051,7 +1072,9 @@ optimize <- function(data = NULL,
     init = init,
     refresh = refresh,
     output_dir = output_dir,
-    sig_figs = sig_figs
+    output_basename = output_basename,
+    sig_figs = sig_figs,
+    opencl_ids = opencl_ids
   )
 
   cmdstan_procs <- CmdStanProcs$new(
@@ -1132,8 +1155,10 @@ variational <- function(data = NULL,
                         init = NULL,
                         save_latent_dynamics = FALSE,
                         output_dir = NULL,
+                        output_basename = NULL,
                         sig_figs = NULL,
                         threads = NULL,
+                        opencl_ids = NULL,
                         algorithm = NULL,
                         iter = NULL,
                         grad_samples = NULL,
@@ -1164,6 +1189,7 @@ variational <- function(data = NULL,
            call. = FALSE)
     }
   }
+  check_opencl(self$cpp_options(), opencl_ids)
   variational_args <- VariationalArgs$new(
     algorithm = algorithm,
     iter = iter,
@@ -1183,7 +1209,7 @@ variational <- function(data = NULL,
   )
   cmdstan_args <- CmdStanArgs$new(
     method_args = variational_args,
-    model_name = strip_ext(basename(self$exe_file())),
+    model_name = self$model_name(),
     exe_file = self$exe_file(),
     proc_ids = 1,
     data_file = process_data(data),
@@ -1192,7 +1218,9 @@ variational <- function(data = NULL,
     init = init,
     refresh = refresh,
     output_dir = output_dir,
-    sig_figs = sig_figs
+    output_basename = output_basename,
+    sig_figs = sig_figs,
+    opencl_ids = opencl_ids
   )
 
   cmdstan_procs <- CmdStanProcs$new(
@@ -1275,9 +1303,11 @@ generate_quantities <- function(fitted_params,
                                 data = NULL,
                                 seed = NULL,
                                 output_dir = NULL,
+                                output_basename = NULL,
                                 sig_figs = NULL,
                                 parallel_chains = getOption("mc.cores", 1),
-                                threads_per_chain = NULL) {
+                                threads_per_chain = NULL,
+                                opencl_ids = NULL) {
   checkmate::assert_integerish(parallel_chains, lower = 1, null.ok = TRUE)
   checkmate::assert_integerish(threads_per_chain, lower = 1, len = 1, null.ok = TRUE)
   if (is.null(self$cpp_options()[["stan_threads"]])) {
@@ -1294,7 +1324,7 @@ generate_quantities <- function(fitted_params,
            call. = FALSE)
     }
   }
-
+  check_opencl(self$cpp_options(), opencl_ids)
   fitted_params <- process_fitted_params(fitted_params)
   chains <- length(fitted_params)
   generate_quantities_args <- GenerateQuantitiesArgs$new(
@@ -1302,13 +1332,15 @@ generate_quantities <- function(fitted_params,
   )
   cmdstan_args <- CmdStanArgs$new(
     method_args = generate_quantities_args,
-    model_name = strip_ext(basename(self$exe_file())),
+    model_name = self$model_name(),
     exe_file = self$exe_file(),
     proc_ids = seq_len(chains),
     data_file = process_data(data),
     seed = seed,
     output_dir = output_dir,
-    sig_figs = sig_figs
+    output_basename = output_basename,
+    sig_figs = sig_figs,
+    opencl_ids = opencl_ids
   )
   cmdstan_procs <- CmdStanGQProcs$new(
     num_procs = chains,
@@ -1320,3 +1352,13 @@ generate_quantities <- function(fitted_params,
   CmdStanGQ$new(runset)
 }
 CmdStanModel$set("public", name = "generate_quantities", value = generate_quantities)
+
+
+check_opencl <- function(cpp_options, opencl_ids) {
+  if (is.null(cpp_options[["stan_opencl"]])
+      && !is.null(opencl_ids)) {
+     stop("'opencl_ids' is set but the model was not compiled with for use with OpenCL.",
+           "\nRecompile the model with the 'cpp_options = list(stan_opencl = TRUE)'",
+           call. = FALSE)   
+  }
+}

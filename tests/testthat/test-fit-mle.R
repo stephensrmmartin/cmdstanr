@@ -54,12 +54,24 @@ test_that("output() works for optimization", {
 
 test_that("time is reported after optimization", {
   skip_on_cran()
-  expect_output(mod$optimize(data = data_list),
+  expect_output(mod$optimize(data = data_list, seed = 123),
                 "Finished in")
 })
 
 test_that("no error when checking estimates after failure", {
-  fit <- cmdstanr_example("schools", method = "optimize") # optim ålways fails for this
+  skip_on_cran()
+  fit <- cmdstanr_example("schools", method = "optimize", seed = 123) # optim ålways fails for this
   expect_silent(fit$summary()) # no error
 })
 
+test_that("draws() works for different formats", {
+  skip_on_cran()
+  a <- fit_mle$draws()
+  expect_true(posterior::is_draws_matrix(a))
+  a <- fit_mle$draws(format = "list")
+  expect_true(posterior::is_draws_list(a))
+  a <- fit_mle$draws(format = "array")
+  expect_true(posterior::is_draws_array(a))
+  a <- fit_mle$draws(format = "df")
+  expect_true(posterior::is_draws_df(a))
+})
