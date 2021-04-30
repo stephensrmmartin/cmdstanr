@@ -697,7 +697,7 @@ validate_variational_args <- function(self) {
   }
   checkmate::assert_integerish(self$rank,  null.ok = TRUE,
                                lower = 1, len = 1)
-  if (!is.null(self$rank) {
+  if (!is.null(self$rank)) {
     self$rank <- as.integer(self$rank)
   }
   checkmate::assert_integerish(self$output_samples, null.ok = TRUE,
