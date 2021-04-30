@@ -25,6 +25,7 @@ if (not_on_cran()) {
     ess_cut = 21.1,
     num_chains = 5,
     output_samples = 10,
+    rank = 1,
     save_latent_dynamics = FALSE
   )
 
@@ -48,6 +49,7 @@ if (not_on_cran()) {
     ess_cut = -5,
     num_chains = 5.5,
     output_samples = -10,
+    rank = -2,
     save_latent_dynamics = "NOT_LOGICAL"
   )
 }

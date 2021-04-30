@@ -1117,6 +1117,7 @@ CmdStanModel$set("public", name = "optimize", value = optimize)
 #' @param ess_cut (positive real) ESS threshold to set iterative averaging
 #'   limit.
 #' @param num_chains (positive integer) Number of chains to use
+#' @param rank (positive integer) For lowrank algorithm where 1 <= rank < # model params
 #' @param output_samples (positive integer) Number of approximate posterior
 #'   samples to draw and save.
 #'
@@ -1146,6 +1147,7 @@ variational <- function(data = NULL,
                         mcse_cut = NULL,
                         ess_cut = NULL,
                         num_chains = NULL,
+                        rank = NULL,
                         output_samples = NULL) {
   checkmate::assert_integerish(threads, lower = 1, len = 1, null.ok = TRUE)
   if (is.null(self$cpp_options()[["stan_threads"]])) {
@@ -1176,6 +1178,7 @@ variational <- function(data = NULL,
     mcse_cut = mcse_cut,
     ess_cut = ess_cut,
     num_chains = num_chains,
+    rank = rank,
     output_samples = output_samples
   )
   cmdstan_args <- CmdStanArgs$new(

@@ -410,6 +410,7 @@ VariationalArgs <- R6::R6Class(
                           mcse_cut = NULL,
                           ess_cut = NULL,
                           num_chains = NULL,
+                          rank = NULL,
                           output_samples = NULL) {
       self$algorithm <- algorithm
       self$iter <- iter
@@ -422,6 +423,7 @@ VariationalArgs <- R6::R6Class(
       self$mcse_cut <- mcse_cut
       self$ess_cut <- ess_cut
       self$num_chains <- num_chains
+      self$rank <- rank
       self$output_samples <- output_samples
       self$adapt_iter <- adapt_iter
       self$adapt_engaged <- adapt_engaged
@@ -457,6 +459,7 @@ VariationalArgs <- R6::R6Class(
         .make_arg("mcse_cut"),
         .make_arg("ess_cut"),
         .make_arg("num_chains"),
+        .make_arg("rank"),
         .make_arg("output_samples"),
         if (!is.null(self$adapt_engaged) || !is.null(self$adapt_iter))
           "adapt",
@@ -653,7 +656,7 @@ validate_generate_quantities_args <- function(self) {
 #' @return `TRUE` invisibly unless an error is thrown.
 validate_variational_args <- function(self) {
   checkmate::assert_subset(self$algorithm, empty.ok = TRUE,
-                           choices = c("meanfield", "fullrank"))
+                           choices = c("meanfield", "fullrank", "lowrank"))
   checkmate::assert_integerish(self$iter, null.ok = TRUE,
                                lower = 1, len = 1)
   if (!is.null(self$iter)) {
@@ -678,6 +681,11 @@ validate_variational_args <- function(self) {
                                lower = 1, len = 1)
   if (!is.null(self$num_chains)) {
     self$num_chains <- as.integer(self$num_chains)
+  }
+  checkmate::assert_integerish(self$rank,  null.ok = TRUE,
+                               lower = 1, len = 1)
+  if (!is.null(self$rank) {
+    self$rank <- as.integer(self$rank)
   }
   checkmate::assert_integerish(self$output_samples, null.ok = TRUE,
                                lower = 1, len = 1)
