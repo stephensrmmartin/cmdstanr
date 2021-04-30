@@ -29,6 +29,7 @@ variational(
   mcse_cut = NULL,
   ess_cut = NULL,
   num_chains = NULL,
+  rank = NULL,
   output_samples = NULL
 )
 }
@@ -129,8 +130,8 @@ device IDs of the OpenCL device to use for fitting. The model must
 be compiled with \code{cpp_options = list(stan_opencl = TRUE)} for this
 argument to have an effect.}
 
-\item{algorithm}{(string) The algorithm. Either \code{"meanfield"} or
-\code{"fullrank"}.}
+\item{algorithm}{(string) The algorithm. One of \code{"meanfield"},
+\code{"fullrank"}, or \code{"lowrank"}.}
 
 \item{iter}{(positive integer) The \emph{maximum} number of iterations.}
 
@@ -165,6 +166,9 @@ limit.}
 
 \item{num_chains}{(positive integer) Number of chains to use}
 
+\item{rank}{(positive integer) Rank of lowrank approximation. Between 1 and 
+number of model parameters - 1.}
+
 \item{output_samples}{(positive integer) Number of approximate posterior
 samples to draw and save.}
 }
@@ -186,7 +190,9 @@ approximation is a Gaussian in the unconstrained variable space. Stan
 implements two variational algorithms. The \code{algorithm="meanfield"} option
 uses a fully factorized Gaussian for the approximation. The
 \code{algorithm="fullrank"} option uses a Gaussian with a full-rank covariance
-matrix for the approximation.
+matrix for the approximation. The \code{algorithm="lowrank"} option uses a lower rank 
+factored covariance matrix that is between rank 1 (approximately equal to meanfield) 
+and rank number of parameters - 1 (approximately equal to fullrank).
 
 -- \href{https://github.com/stan-dev/cmdstan/releases/latest}{\emph{CmdStan Interface User's Guide}}
 }
