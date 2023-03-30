@@ -197,7 +197,7 @@ read_cmdstan_csv <- function(files,
     variables <- NULL
   } else { # filter using variables
     if (metadata$method == "variational") {
-        variables <- gsub("lp_approx__", "lp_g__", variables)
+        variables <- gsub("lp_approx__", "log_g__", variables)
     }
     res <- matching_variables(variables, repair_variable_names(metadata$variables))
     ## mismatches_to_ignore <- c("lp_approx__") # Ignore these if not found
