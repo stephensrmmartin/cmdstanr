@@ -17,7 +17,7 @@ is_verbose_mode <- function() {
 }
 
 # used in both fit.R and csv.R for variable filtering
-matching_variables <- function(variable_filters, variables, pass_variables = NULL) {
+matching_variables <- function(variable_filters, variables) {
   not_found <- c()
   selected_variables <- c()
   for (v in variable_filters) {
@@ -27,10 +27,6 @@ matching_variables <- function(variable_filters, variables, pass_variables = NUL
     if (!any(selected)) {
       not_found <- c(not_found, v)
     }
-  }
-  if(!is.null(pass_variables)) {
-      selected_variables <- c(selected_variables, pass_variables)
-      not_found <- not_found[!(not_found %in% pass_variables)]
   }
   list(
     matching = selected_variables,
