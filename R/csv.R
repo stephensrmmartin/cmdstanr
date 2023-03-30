@@ -196,9 +196,14 @@ read_cmdstan_csv <- function(files,
   } else if (!any(nzchar(variables))) { # if variables = "" returns none
     variables <- NULL
   } else { # filter using variables
+    if (metadata$method == "variational") {
+        metadata$variables <- metadata$variables[metadata$variables != "lp__"]
+        metadata$variables <- gsub("log_p__", "lp__", metadata$variables)
+        metadata$variables <- gsub("log_g__", "lp_approx__", metadata$variables)
+    }
     res <- matching_variables(variables, repair_variable_names(metadata$variables))
-    mismatches_to_ignore <- c("lp_approx__") # Ignore these if not found
-    res$not_found <- res$not_found[!(res$not_found %in% mismatches_to_ignore)]
+    ## mismatches_to_ignore <- c("lp_approx__") # Ignore these if not found
+    ## res$not_found <- res$not_found[!(res$not_found %in% mismatches_to_ignore)]
     if (length(res$not_found)) {
       stop("Can't find the following variable(s) in the output: ",
             paste(res$not_found, collapse = ", "), call. = FALSE)
