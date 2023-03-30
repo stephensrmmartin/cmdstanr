@@ -296,9 +296,9 @@ read_cmdstan_csv <- function(files,
   metadata$variables <- repair_variable_names(metadata$variables)
   repaired_variables <- repair_variable_names(variables)
   if (metadata$method == "variational") {
-    metadata$variables <- metadata$variables[metadata$variables != "lp__"]
-    metadata$variables <- gsub("log_p__", "lp__", metadata$variables)
-    metadata$variables <- gsub("log_g__", "lp_approx__", metadata$variables)
+    ## metadata$variables <- metadata$variables[metadata$variables != "lp__"]
+    ## metadata$variables <- gsub("log_p__", "lp__", metadata$variables)
+    ## metadata$variables <- gsub("log_g__", "lp_approx__", metadata$variables)
     repaired_variables <- repaired_variables[repaired_variables != "lp__"]
     repaired_variables <- gsub("log_p__", "lp__", repaired_variables)
     repaired_variables <- gsub("log_g__", "lp_approx__", repaired_variables)
